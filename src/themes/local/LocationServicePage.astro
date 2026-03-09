@@ -635,23 +635,45 @@ const accentRgb = hexToRgb(nicheColor.startsWith('#') ? nicheColor : '#2563eb');
 
 </LocalLayout>
 
-<script define:vars={{ waBase: whatsapp ? `https://wa.me/55${whatsapp.replace(/\D/g, '')}` : '' }}>
-    function submitSidebarForm() {
-        const name  = (document.getElementById('sf-name')  as HTMLInputElement)?.value?.trim() || '';
-        const phone = (document.getElementById('sf-phone') as HTMLInputElement)?.value?.trim() || '';
-        const msg   = (document.getElementById('sf-msg')   as HTMLTextAreaElement)?.value?.trim() || '';
+<script define:vars={{
+    waBase: whatsapp ? `https://wa.me/55${whatsapp.replace(/\D/g, '')}` : '',
+    serviceSlug: service?.slug || '',
+    serviceTitle: service?.title || '',
+    locationName: location?.name || '',
+}}>
+    async function submitSidebarForm() {
+        const name  = (document.getElementById('sf-name')?.value ?? '').toString().trim();
+        const phone = (document.getElementById('sf-phone')?.value ?? '').toString().trim();
+        const msg   = (document.getElementById('sf-msg')?.value ?? '').toString().trim();
 
-        const parts: string[] = [];
-        if (name)  parts.push(`Nome: ${name}`);
-        if (phone) parts.push(`Telefone: ${phone}`);
-        if (msg)   parts.push(`Mensagem: ${msg}`);
+        const parts = [];
+        if (name)  parts.push('Nome: ' + name);
+        if (phone) parts.push('Telefone: ' + phone);
+        if (msg)   parts.push('Mensagem: ' + msg);
 
-        const baseText = (document.getElementById('sf-btn-wa') as HTMLElement)?.closest('#sidebar-form')
+        const baseText = document.getElementById('sf-btn-wa')?.closest('#sidebar-form')
             ?.querySelector('textarea')?.placeholder || 'Gostaria de um orçamento';
 
         const text = parts.length > 0
             ? `Olá! Tenho interesse em um orçamento.\n${parts.join('\n')}`
             : baseText;
+
+        if (name && (phone || msg)) {
+            try {
+                await fetch('/api/leads', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        phone: phone || undefined,
+                        email: undefined,
+                        message: msg || 'Interesse via sidebar',
+                        source: 'servico-sidebar',
+                        extra: { serviceSlug, serviceTitle, locationName },
+                    }),
+                });
+            } catch (_) { /* ignora erro de lead, segue para WhatsApp */ }
+        }
 
         if (waBase) {
             window.open(`${waBase}?text=${encodeURIComponent(text)}`, '_blank');
